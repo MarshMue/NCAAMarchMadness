@@ -9,15 +9,15 @@ from ZODB import FileStorage, DB
 import transaction
 from persistent import Persistent
 
-# storage = FileStorage.FileStorage("teams.fs")
-# db = DB(storage)
-# conn = db.open()
-# dbroot = conn.root()
-#
-# if not dbroot.has_key("teams"):
-#     dbroot["teams"] = OOBTree()
-#
-# Teams = dbroot["teams"]
+storage = FileStorage.FileStorage("teams.fs")
+db = DB(storage)
+conn = db.open()
+dbroot = conn.root()
+
+if not dbroot.has_key("teams"):
+    dbroot["teams"] = OOBTree()
+
+Teams = dbroot["teams"]
 
 
 class Team(Persistent):
@@ -75,7 +75,7 @@ class Team(Persistent):
             self.playerStats[td[0].text.strip()] = stats
             index += 1
 
-        # update team specific stats
+        # update overall team specific stats
         totals = soup2.find("tr", {"class": "total"})
         self.ppg = totals.findAll("td")[3].text.strip()
         subtitle = soup2.find("div", {"class", "sub-title"})
@@ -84,23 +84,36 @@ class Team(Persistent):
         self.wins = record[:record.index("-")]
         self.losses = record[record.index("-") + 1:]
 
-# set up soup for team page and get all urls for team stats
-url = "http://espn.go.com/mens-college-basketball/teams"
-response = requests.get(url)
-soup = BeautifulSoup(response.text, 'html5lib')
-container = soup.find("div", {"class" : "span-4"})
-teamURLs = container.findAll("li")
+if len(Teams) == 0:
+    # set up soup for team page and get all urls for team stats
+    url = "http://espn.go.com/mens-college-basketball/teams"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html5lib')
+    container = soup.find("div", {"class" : "span-4"})
+    teamURLs = container.findAll("li")
 
-# iterate through all the teams stats and pull relevant info
-for teamURL in teamURLs:
-    links = teamURL.findAll("a")
-    name = links[0].text.strip()
-    statsUrl = links[1]['href']
-    team = Team(name, statsUrl)
-    team.update()
+    # iterate through all the teams stats and pull relevant info
+    for teamURL in teamURLs:
+        links = teamURL.findAll("a")
+        name = links[0].text.strip()
+        statsUrl = links[1]['href']
+        team = Team(name, statsUrl)
+        team.update()
 
-    # print for debug and verifying data
-    print team.name
-    for player in team.players:
-        print player + ": " + str(team.playerStats[player])
-    print ""
+        # add team to database
+        Teams[name] = team
+        transaction.commit()
+
+        # print for debug and verifying data
+        print team.name
+        for player in team.players:
+            print player + ": " + str(team.playerStats[player])
+        print ""
+else:
+    # data already in database, print from it
+    for team in Teams:
+        print team
+        pind = 0
+        for player in Teams[team].players:
+            print str(player) + ": " + str(Teams[team].playerStats[player])
+        print ""

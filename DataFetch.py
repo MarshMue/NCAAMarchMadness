@@ -26,6 +26,7 @@ class Team(Persistent):
         self.name = name
         self.statsUrl = statsUrl
         self.players = []
+        self.playerStats = {}
         self.ppg = 0
         self.wins = 0
         self.losses = 0
@@ -38,9 +39,24 @@ class Team(Persistent):
         index = 2
         while tr[index]["class"][0] != u'total':
             td = tr[index].findAll("td")
-            stats = {}
             self.players.append(td[0].text.strip())
+            stats = {}
+            statind = 1
+            statname = tr[1].findAll("td")
+            # convert stat column names to strings
+            y = 0
+            while y < len(statname):
+                statname[y] = statname[y].text.strip()
+                y += 1
+                # get each player stats and add to stats dictionary, with stat name as key value
+            while statind < len(tr[1]):
+                statsrow = tr[index].findAll("td")
+                stats[statname[statind]] = float(statsrow[statind].text.strip())
+                statind += 1
+            # add stats to player dictionary, indexed by plyer name
+            self.playerStats[td[0].text.strip()] = stats
             index += 1
+        # update team specific stats
         totals = soup2.find("tr", {"class": "total"})
         self.ppg = totals.findAll("td")[3].text.strip()
         subtitle = soup2.find("div", {"class", "sub-title"})
@@ -61,7 +77,8 @@ for teamURL in teamURLs:
     statsUrl = links[1]['href']
     team = Team(name, statsUrl)
     team.update()
+    # print for debug and verifying data
     print team.name
     for player in team.players:
-        print player
+        print player + ": " + str(team.playerStats[player])
     print ""
